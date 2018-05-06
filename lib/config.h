@@ -20,6 +20,17 @@
 #define MESSAGE_SUCCESS "SUCCESS"
 #define MESSAGE_FAILED "FAILED"
 
+/*ERROR start*/
+#define ERROR_NONE 0 // NO ERROR
+#define ERROR_NORMAL -1
+#define ERROR_USER_EXISTS -2
+#define ERROR_USER_NOTEXISTS -3
+#define ERROR_PASSWORD -4;
+/*ERROR end*/
+
+#define ONLINE 1
+#define OFFLINE 0
+
 typedef long long LL;
 
 typedef enum {
