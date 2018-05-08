@@ -6,13 +6,15 @@ SERVERDIR?=./server
 CLIENTDIR?=./client
 LIB?=./lib
 
-all: chat 
+all: config dao chat 
 
 chat: 
-		gcc $(GFLAGS) -o chat $(SERVERDIR)/chat.c dao.o $(LIB)/config.o $(EVENTLIB) $(REDISLIB)
+		gcc $(GFLAGS) -o $(BINDIR)/chat $(SERVERDIR)/chat.c $(SERVERDIR)/dao.o $(LIB)/config.o $(EVENTLIB) $(REDISLIB)
 dao:
-		gcc $(GFLAGS) -c -o dao.o $(SERVERDIR)/dao.c $(LIB)/config.o $(REDISLIB)
+		gcc $(GFLAGS) -c -o $(BINDIR)/dao.o $(SERVERDIR)/dao.c $(REDISLIB)
+config:
+		gcc -c -o $(BINDIR)/config.o $(LIB)/config.c
 cleanall:
-	rm -f *.o chart dao
+	rm -f $(BINDIR)/*.o $(BINDIR)/chat
 clean:
-	rm -f server
+	rm -f $(BINDIR)/chat
