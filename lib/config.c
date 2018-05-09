@@ -1,6 +1,13 @@
 #include "config.h"
 #include <sys/time.h>
 
+const char *message_types[] = {
+    "TEXT",        "IMAGE",      "LOGIN",
+    "REGISTER",    "LOGOUT",     "LIST_CHAT",
+    "LIST_FRIEND", "ADD_FRIEND", "ADD_FRIEND_TO_GROUP",
+    "DEL_FRIEND",  "ADD_GROUP",  "DEL_GROUP",
+    "SNY_MSG",     "DEL_MSG",    "EXIT"};
+
 int64_t currentTimeMillis() {
   struct timeval time;
   gettimeofday(&time, NULL);
@@ -21,7 +28,17 @@ Message *new_messgae() {
   return m;
 }
 
-Message *user2msg(User *user) {}
+Message *user2msg(User *user) {
+  // check tregister time and username
+  if (!user->registerTime || !strcmp("", user->username)) {
+    return NULL;
+  }
+  Message *message = new_messgae();
+  char format[MAX_MSG_DATA] = {0};
+  sprintf(format, "%s %s %ld", user->username, user->pass, user->registerTime);
+  strcpy(message->msg, format);
+  return message;
+}
 
 User *msg2user(Message *msg) {
   User *user = new_user();
@@ -36,15 +53,4 @@ User *msg2user(Message *msg) {
   user->registerTime = registerTime;
 
   return user;
-}
-
-// use for client
-Message *register_message(char *username, char *pass, int64_t time) {
-  Message *message = new_messgae();
-  char format[MAX_MSG_DATA];
-  sprintf(format, "%s %s %ld", "XIAOHONG", "1111", currentTimeMillis());
-  strcpy(message->msg, format);
-  message->type = REGISTER;
-  strncpy(message->senderName, username, MAX_CHARS);
-  message->sendTime = time;
 }
