@@ -73,7 +73,7 @@ error:
  * ERROR_USER_NOTEXISTS
  * @retval succeed->userId
  */
-int login_user(User *user /*, char *auth*/) {
+LL login_user(User *user /*, char *auth*/) {
   redisReply *reply;
   int exists = is_user_exists(user->username);
   check(exists != ERROR_NORMAL, "DB: error");
@@ -108,7 +108,7 @@ error:
  * @brief  set user offline, also update lastOnlineTime
  * @retval succeed->userId
  */
-int logout_user(User *user) { set_offline(user); }
+LL logout_user(User *user) { return set_offline(user); }
 
 LL get_next_userid() {
   redisReply *reply = redisCommand(c, "INCR next_user_id");
@@ -122,11 +122,13 @@ error:
 }
 
 /**
- * @brief  call this function after loging
+ * @brief  call this function after loging, update user info(lastOnlineTime, fd,
+ * online status)
  */
-int set_online(User *user, int fd) {
-  redisReply *reply = redisCommand(c, "HMSET user:%lld isOnline %d sockfd %d",
-                                   user->userId, 1, fd);
+LL set_online(User *user, int fd) {
+  redisReply *reply = redisCommand(
+      c, "HMSET user:%lld isOnline %d sockfd %d lastOnlineTime %ld",
+      user->userId, 1, fd, currentTimeMillis());
   check(reply->type != REDIS_REPLY_ERROR, "DB: error");
 
   return user->userId;
@@ -134,13 +136,33 @@ error:
   return ERROR_NORMAL;
 }
 
-int set_offline(User *user) {
+LL set_offline(User *user) {
   redisReply *reply = redisCommand(
       c, "HMSET user:%lld isOnline %d sockfd %d lastOnlineTime %ld",
       user->userId, 0, -1, currentTimeMillis());
   check(reply->type != REDIS_REPLY_ERROR, "DB: error");
   freeReplyObject(reply);
   return user->userId;
+error:
+  return ERROR_NORMAL;
+}
+
+/**
+ * @brief  get user id by username
+ * @retval susseed->userId
+ */
+LL get_userid_by_name(char *username) {
+  redisReply *reply = redisCommand(c, "HGET users %s", username);
+  check(reply->type != REDIS_REPLY_ERROR, "DB: error");
+
+  char id_str[MAX_MSG_DATA];
+  strcpy(id_str, reply->str);
+  LL id = atoll(id_str);
+
+  freeReplyObject(reply);
+
+  return id;
+
 error:
   return ERROR_NORMAL;
 }
@@ -162,7 +184,36 @@ int is_user_exists(char *username) {
 
 /*ab*/
 int get_fd_byname(char *username) { return -1; }
-int get_fd_byid(LL id) { return -1; }
+/**
+ * @brief find all valid sockfds(online) in this chatroom by the chatroom id.
+ * @param  id: chatroom id
+ * @param  size: receiver to get size of sockfds
+ * @retval pointer of all sockfds
+ */
+int *get_fd_byid(LL chatroom_id, size_t *size) {
+  redisReply *reply = redisCommand(c, "SMEMBERS chatroom:%lld", chatroom_id);
+  check(reply->type != REDIS_REPLY_ERROR, "DB: error");
+
+  *size = 0;
+  int *fds = calloc(reply->elements, sizeof(int));
+  check_mem(fds);
+
+  for (int i = 0; i < reply->elements; i++) {
+    int fd = atoi(reply->element[i]->str);
+    log_d("fd: %d", fd);
+    if (fd > 0) {
+      fds[(*size)++] = fd;
+    }
+  }
+
+  freeReplyObject(reply);
+
+  return fds;
+
+error:
+  return NULL;
+}
+
 int set_fd_byid(LL id) { return -1; }
 /*ab*/
 
@@ -184,15 +235,15 @@ error:
  * @param  *username2: the second user in chatroom
  * @retval succeed->chatroom id, else error code
  */
-LL create_chatroom(char *username1, char *username2) {
+LL create_chatroom(LL userId1, LL userId2) {
 
   redisReply *reply;
 
   int chatroom_id = get_next_chatroomid();
   check(chatroom_id != ERROR_NORMAL, "can't create chatroom");
 
-  reply = redisCommand(c, "SADD chatroom:%lld %s %s", chatroom_id, username1,
-                       username2);
+  reply = redisCommand(c, "SADD chatroom:%lld %lld %lld", chatroom_id, userId1,
+                       userId2);
   check(reply->type != REDIS_REPLY_ERROR, "DB: error");
   freeReplyObject(reply);
   return chatroom_id;

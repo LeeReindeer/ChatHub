@@ -16,26 +16,27 @@ void close_db();
 /*user dao start*/
 LL register_user(User *user);
 
-int login_user(User *user /*, char *auth*/);
+LL login_user(User *user /*, char *auth*/);
 
-int logout_user(User *user);
+LL logout_user(User *user);
 
-int set_online(User *user, int fd);
-int set_offline(User *user);
+LL set_online(User *user, int fd);
+LL set_offline(User *user);
 
 LL get_next_userid();
 
+LL get_userid_by_name(char *username);
 int is_user_exists(char *username);
 
 int get_fd_byname(char *username);
-int get_fd_byid(LL id);
+int *get_fd_byid(LL chatroom_id, size_t *size);
 int set_fd_byid(LL id);
 /*user dao end*/
 
 /*chatroom dao start*/
 LL get_next_chatroomid();
 
-LL create_chatroom(char *username1, char *username2);
+LL create_chatroom(LL userId1, LL userId2);
 
 // LL create_group(...);
 
