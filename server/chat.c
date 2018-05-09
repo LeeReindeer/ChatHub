@@ -17,12 +17,14 @@
 
 #include "../lib/config.h"
 #include "../lib/dbg.h"
+#include "../lib/message.h"
 #include "dao.h"
 
 /*
 * main server
 */
 
+// todo use hashtable instead
 struct bufferevent
     *clients[1024]; /* use fd as index, get event at O(1) time.So the max only
                        user number is 1024.*/
@@ -30,31 +32,31 @@ void connectClient(struct bufferevent *bev);
 void disconnectClient(struct bufferevent *bev);
 
 /* dispatch messages to following func*/
-void handleAllMessage(struct bufferevent *from, struct bufferevent *to,
-                      Message *message);
+void handleAllMessage(struct bufferevent *from, Message *message);
 int handleRegister(struct bufferevent *this, Message *message);
 int handleLogin(struct bufferevent *this, Message *message);
 int handleLogout(struct bufferevent *this, Message *message);
-int handleChat(struct bufferevent *from, struct bufferevent *to,
-               Message *message);
+int handleChat(struct bufferevent *from, Message *message);
 
 void initDB();
 void initEvent();
 
-void handleAllMessage(struct bufferevent *from, struct bufferevent *to,
-                      Message *message) {
+void handleAllMessage(struct bufferevent *from, Message *message) {
   int type = message->type;
+  log_d("recv msg type: %s", message_types[type]);
 
   switch (type) {
   case LOGIN:
     handleLogin(from, message);
     break;
+  case LOGOUT:
+    handleLogout(from, message);
   case REGISTER:
     handleRegister(from, message);
     break;
   case TEXT:
   case IMAGE:
-    handleChat(from, to, message);
+    handleChat(from, message);
     break;
   default:
     break;
@@ -64,39 +66,107 @@ void handleAllMessage(struct bufferevent *from, struct bufferevent *to,
 int handleRegister(struct bufferevent *this, Message *message) {
   User *user = msg2user(message);
   user->userId = register_user(user);
+  int rc = user->userId;
   message->type = REGISTER;
-  if (user->userId == -1) {
-    // write error message
-    strcpy(message->msg, MESSAGE_FAILED);
-    bufferevent_write(this, message, sizeof(Message));
-    return -1;
-  }
-
   char id[MAX_MSG_DATA];
   sprintf(id, "%lld", user->userId);
   strcpy(message->msg, id);
-  bufferevent_write(this, message, sizeof(Message));
-  return 0;
+
+  char *json = NULL;
+  json = pack_message(message);
+
+  bufferevent_write(this, json, MAX_BUFF);
+
+  free(json);
+  free(user);
+  return rc;
 }
 
 int handleLogin(struct bufferevent *this, Message *message) {
   User *user = msg2user(message);
-  if (login_user(user)) {
-    char id[MAX_MSG_DATA];
-    sprintf(id, "%lld", user->userId);
-    strcpy(message->msg, id);
-    bufferevent_write(this, message, sizeof(Message));
-    return 0;
+  user->userId = login_user(user);
+  int rc = user->userId;
+  message->type = LOGIN;
+  char *json = NULL;
+  char id[MAX_MSG_DATA];
+
+  sprintf(id, "%lld", user->userId);
+  strcpy(message->msg, id);
+  json = pack_message(message);
+  if (rc > 0) { // vaild user id
+    // set user sockfd
+    set_online(user, bufferevent_getfd(this));
   }
-  strcpy(message->msg, MESSAGE_FAILED);
-  bufferevent_write(this, message, sizeof(Message));
-  return -1;
+  bufferevent_write(this, json, MAX_BUFF);
+
+  free(json);
+  free(user);
+
+  return rc;
 }
 
-// todo
-int handleLogout(struct bufferevent *this, Message *message) {}
-int handleChat(struct bufferevent *from, struct bufferevent *to,
-               Message *message) {}
+int handleLogout(struct bufferevent *this, Message *message) {
+  User *user = msg2user(message);
+  user->userId = logout_user(user);
+  int rc = user->userId;
+  message->type = LOGOUT;
+  char *json = NULL;
+  char id[MAX_MSG_DATA];
+
+  sprintf(id, "%lld", user->userId);
+  strcpy(message->msg, id);
+  json = pack_message(message);
+
+  bufferevent_write(this, json, MAX_BUFF);
+
+  free(json);
+  free(user);
+
+  return rc;
+}
+
+int handleChat(struct bufferevent *from, Message *message) {
+  struct evbuffer *input;
+  input = bufferevent_get_input(from);
+  size_t size = 0;
+  int *fds = get_fd_byid(message->groupId, &size);
+  struct bufferevent **recv_bevs =
+      (struct bufferevent **)calloc(size, sizeof(struct bufferevent *));
+
+  for (size_t i = 0; i < size; i++) {
+    recv_bevs[i] = clients[fds[i]];
+    // send msg to all group memebers
+    if (recv_bevs[i]) {
+      evbuffer_add_buffer(bufferevent_get_output(recv_bevs[i]), input);
+    } else {
+      // set unread message
+    }
+    save_message(message->groupId, message);
+  }
+
+  free(fds);
+  // struct bufferevent *receiver_bev = clients[this_fd]; // itself
+  // if (receiver_bev)
+  // { // "online" record in runtime
+  //   log_d("write to client: %d\n", bufferevent_getfd(receiver_bev));
+  //   log_d("Start handle message...");
+  //   handleAllMessage(bev, message);
+  //   // output = bufferevent_get_output(receiver_bev);
+  //   // evbuffer_add_buffer(output, input);
+  //   // bufferevent_flush(receiver_bev, EV_WRITE, BEV_NORMAL);
+  // }
+  // else
+  // {
+  //   // todo save only chat msg to db, and set unsent key
+  //   bufferevent_write(bev, "error", 6);
+  //   bufferevent_flush(bev, EV_WRITE, BEV_NORMAL);
+  //   log_d("user not online, just save msg to db...");
+  // }
+  // get fd from redis("online" record on db)
+  // evutil_socket_t fd =
+  //     get_fd_byid(message->groupId); // this only for personal chat
+  // struct bufferevent *receiver_bev = clients[fd];
+}
 
 void connectClient(struct bufferevent *bev) {
   clients[bufferevent_getfd(bev)] = bev;
@@ -104,43 +174,39 @@ void connectClient(struct bufferevent *bev) {
 
 void disconnectClient(struct bufferevent *bev) {
   clients[bufferevent_getfd(bev)] = NULL;
-  handleLogout(bev, NULL);
 }
 
 void readcb(struct bufferevent *bev, void *arg) {
   struct evbuffer *input, *output;
-
   char buf[MAX_BUFF];
   int n;
 
   input = bufferevent_get_input(bev);
+  n = evbuffer_get_length(input);
+  log_d("n: %d", n);
+  if (n < MAX_BUFF) {
+    log_d("drop small message");
+    return;
+  }
+
   while ((n = evbuffer_remove(input, buf, MAX_BUFF)) > 0) {
   }
-  Message *message = (Message *)buf;
+
+  Message *message = unpack_message(buf);
+  if (!strcmp(message->msg, "")) {
+    log_d("drop empty message");
+    return;
+  }
+  log_d("recv msg: %s", message->msg);
 
   // debug
   int this_fd = bufferevent_getfd(bev);
   log_d("read from fd: %d", this_fd);
 
-  // get fd from redis("online" record on db)
-  evutil_socket_t fd = get_fd_byid(message->groupId);
-  if (fd != -1) {
-    struct bufferevent *receiver_bev = clients[fd];
-    if (receiver_bev) { // "online" record in runtime
-      log_d("write to client: %d\n", bufferevent_getfd(receiver_bev));
-      handleAllMessage(bev, receiver_bev, message);
-      // output = bufferevent_get_output(receiver_bev);
-      // evbuffer_add_buffer(output, input);
-      // bufferevent_flush(receiver_bev, EV_WRITE, BEV_NORMAL);
-    } else {
-      // todo save only chat msg to db, and set unsent key
-      bufferevent_write(bev, "error", 6);
-      bufferevent_flush(bev, EV_WRITE, BEV_NORMAL);
-      log_d("user not online, just save msg to db...");
-    }
+  if (this_fd != -1) {
+    handleAllMessage(bev, message);
   } else {
-    // todo save only chat msg to db. and set unsent key(only for personal
-    // chat..)
+    // send error
   }
 }
 // void writecb(struct bufferevent *bev, void *arg) {}
@@ -149,7 +215,7 @@ void eventcb(struct bufferevent *bev, short events, void *arg) {
   if (events && (BEV_EVENT_EOF | BEV_EVENT_ERROR)) {
     struct event_base *base = arg;
     if (events & BEV_EVENT_EOF) {
-      printf("Connection closed.\n");
+      printf("server: client %d closed.\n", bufferevent_getfd(bev));
     } else if (events & BEV_EVENT_ERROR) {
       printf("Got an error on the connection: %s\n",
              strerror(errno)); /*XXX win32*/
@@ -190,7 +256,7 @@ static void signal_cb(evutil_socket_t sig, short events, void *user_data) {
   struct event_base *base = user_data;
   struct timeval delay = {2, 0};
 
-  log_w("Caught an interrupt signal; exiting cleanly in two seconds");
+  log_d("Caught an interrupt signal; exiting cleanly in two seconds");
 
   event_base_loopexit(base, &delay);
 }
@@ -211,7 +277,8 @@ void initEvent() {
   sin.sin_addr.s_addr = 0;
   sin.sin_port = htons(PORT);
 
-  // the sockfd in listener is default nonblocking.
+  // the sockfd in listener is default
+  // nonblocking.To make bloking: LEV_OPT_LEAVE_SOCKETS_BLOCKING,
   listener = evconnlistener_new_bind(base, listener_cb, base,
                                      LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
                                      16, (struct sockaddr *)&sin, sizeof(sin));
