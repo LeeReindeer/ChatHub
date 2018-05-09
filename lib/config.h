@@ -2,12 +2,11 @@
 #define __CONFIG_H__
 
 #include "dbg.h"
-// #include "net.h"
 #include <netinet/in.h>
 #include <stdint.h>
 #include <stdlib.h>
 #define MAX_MSG_DATA 1024 * 2 // 2KB
-#define MAX_BUFF 1024 * 8     // 8KB
+#define MAX_BUFF 1024 * 4     // 4KB
 #define MAX_CHARS 20
 
 #define MAX_USER_ON 1024
@@ -31,7 +30,12 @@
 #define ONLINE 1
 #define OFFLINE 0
 
+// use in message senderName
+#define CHATHUB_SERVER_NAME "ChatHub"
+
 typedef long long LL;
+
+extern const char *message_types[];
 
 typedef enum {
   TEXT = 0, // 0
