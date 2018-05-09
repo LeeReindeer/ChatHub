@@ -6,6 +6,8 @@ SERVERDIR?=./server
 CLIENTDIR?=./client
 LIB?=./lib
 
+$(shell mkdir -p $(BINDIR))
+
 all: lib dao chat
 
 lib: config parson message
