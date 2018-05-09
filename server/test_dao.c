@@ -1,5 +1,8 @@
 #include "dao.h"
+#include <assert.h>
+#include <unistd.h>
 
+/*compiler:  gcc test_dao.c ../bin/dao.o ../bin/config.o -o test -lhiredis*/
 // void test_reply() {
 //   redisReply *reply;
 
@@ -21,6 +24,7 @@
 //   freeReplyObject(reply);
 // }
 
+/**
 void test_wrapper() {
   char *id = GET("next_user_id");
   printf("%s\n", id);
@@ -43,19 +47,23 @@ error:
   free(s);
   close_db();
 }
+**/
 
 void test_login(User *user) {
   int rc = login_user(user);
   printf("result: %d\n", rc);
-  if (rc == 0) {
+  if (rc) {
+    // test online
+    set_online(user, user->userId);
     printf("login success\n");
   }
 }
 
 void test_register(User *user) {
   user->userId = register_user(user);
-  if (user->userId == -1) {
-    printf("error\n");
+  log_d("id: %lld", user->userId);
+  if (user->userId == ERROR_USER_EXISTS) {
+    printf("ussername exists.\n");
     return;
   }
   printf("register succeed, your userId is: %lld\n", user->userId);
@@ -63,19 +71,18 @@ void test_register(User *user) {
 
 void test_logout(User *user) {
   int rc = logout_user(user);
-  check(rc != -1, "error");
-  check(rc != -3, "user not exsits");
-  check(rc != -4, "already logout");
-  log_d("rc: %d", rc);
+  check(rc != ERROR_NORMAL, "error");
+  log_d("logout success.rc: %d", rc);
 
 error:
   return;
 }
 
 void test_pchat(User *user1, User *user2) {
-  LL chatId = create_chatroom(user1->username, user2->username);
+  assert(user1->userId);
+  assert(user2->userId);
+  LL chatId = create_chatroom(user1->userId, user2->userId);
   if (chatId == -1) {
-    log_d("can't create room");
     return;
   }
   printf("Enter chatroom[%lld]\n", chatId);
@@ -109,6 +116,32 @@ void test_pchat(User *user1, User *user2) {
   free(msg2);
 }
 
+void test_get_userid(char *username) {
+  LL id = get_userid_by_name(username);
+  if (id <= 0) {
+    printf("error\n");
+    return;
+  }
+  printf("userId: %lld\n", id);
+}
+
+void test_get_fds(LL chatroom_id) {
+  size_t size;
+  int *fds = get_fd_byid(chatroom_id, &size);
+  log_d("size: %ld", size);
+
+  if (fds == NULL || size == 0) {
+    printf("nobody online\n");
+    return;
+  }
+
+  for (size_t i = 0; i < size; i++) {
+    printf("send message to %d.\n", fds[i]);
+  }
+
+  free(fds);
+}
+
 int main() {
   open_db(DB_IP, DB_PORT);
 
@@ -121,35 +154,53 @@ int main() {
 
   Message *message1 = new_messgae();
   char format1[MAX_MSG_DATA] = {0};
-  sprintf(format1, "%s %s %ld", "kwok", "0000", currentTimeMillis());
+  sprintf(format1, "%s %s %ld", "kwok", "1111", currentTimeMillis());
   strcpy(message1->msg, format1);
   printf("format: %s\n", message1->msg);
+
+  Message *message2 = new_messgae();
+  char format2[MAX_MSG_DATA] = {0};
+  sprintf(format2, "%s %s %ld", "dong", "1111", currentTimeMillis());
+  strcpy(message2->msg, format2);
+  printf("format: %s\n", message2->msg);
 
   // test server unpacket message
   User *user = msg2user(message);
   User *user1 = msg2user(message1);
+  User *user2 = msg2user(message2);
   // printf("username: %s\n", user->username);
   // printf("pass: %s\n", user->pass);
   // printf("registerTime: %ld\n", user->registerTime);
 
   user->lastOnlineTime = currentTimeMillis();
   user1->lastOnlineTime = currentTimeMillis();
-  // test_login(user);
+  user2->lastOnlineTime = currentTimeMillis();
+
+  // test_get_userid(user->username);//pass
+  // del_chatrooom(4); // pass
+  // test_login(user); // pass
   // test_login(user1);
-  test_logout(user1);
+
+  // test_get_fds(5);//pass
+  // test_logout(user);//pass
   // test_logout(user1);
-  // test_register(user);
+
+  // test_register(user2);//pass
   // test_register(user1);
-  // test_pchat(user, user1);
+
+  // test_pchat(user, user1); // pass
   // leave_chatrooom(2, "leer");
+
   // strcpy(user->username, "XIAO HONG");
   // strcpy(user->pass, "1111");
   // user->registerTime = currentTimeMillis();
 
   free(user);
   free(user1);
+  free(user2);
   free(message);
   free(message1);
+  free(message2);
   // test_wrapper();
   close_db();
 }
