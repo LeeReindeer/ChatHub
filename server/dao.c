@@ -191,10 +191,10 @@ int get_fd_byname(char *username) { return -1; }
  * @retval pointer of all sockfds
  */
 int *get_fd_byid(LL chatroom_id, size_t *size) {
+  *size = 0;
   redisReply *reply = redisCommand(c, "SMEMBERS chatroom:%lld", chatroom_id);
   check(reply->type != REDIS_REPLY_ERROR, "DB: error");
 
-  *size = 0;
   int *fds = calloc(reply->elements, sizeof(int));
   check_mem(fds);
 
