@@ -21,14 +21,12 @@ int64_t currentTimeMillis() {
 }
 
 User *new_user() {
-  User *user = malloc(sizeof(User));
-  memset(user, 0, sizeof(User));
+  User *user = calloc(1, sizeof(User));
   return user;
 }
 
 Message *new_messgae() {
-  Message *m = malloc(sizeof(Message));
-  memset(m, 0, sizeof(Message));
+  Message *m = calloc(1, sizeof(Message));
   return m;
 }
 
