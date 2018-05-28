@@ -8,6 +8,10 @@ const char *message_types[] = {
     "DEL_FRIEND",  "ADD_GROUP",  "DEL_GROUP",
     "SNY_MSG",     "DEL_MSG",    "EXIT"};
 
+/**
+ * @brief provide same output with the native function in java called
+ * currentTimeMillis().
+ */
 int64_t currentTimeMillis() {
   struct timeval time;
   gettimeofday(&time, NULL);

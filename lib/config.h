@@ -61,42 +61,26 @@ typedef enum {
   EXIT // 14
 } MessageType;
 
-/*
-typedef enum {
-    LOGIN_R,
-    LOGOUT_R,
-    DESTROY_R, //remove this account from server
-    REGISTER_R,
-    SEND_R,   //send msg
-    RECV_R,   //recv msg
-} RequestType;*/
-
 typedef struct _User {
-  LL userId;  // AUTO increase
+  LL userId;  // auto increase
   int sockfd; // this user's sockfd with server
   char username[MAX_CHARS];
   char pass[MAX_CHARS];
-  // char nickname[MAX_CHARS];
   char avatar[MAX_MSG_DATA / 2];
-
   int isOnline; // send msg to isOnline user immediately
-
   int64_t registerTime;
-  // update this when user logout or close app,
-  // uses this filed to check new message
+  // update this when user logout or close app
   int64_t lastOnlineTime;
   //    char privateKey[MAX_MSG_DATA];
   //    char publicKey[MAX_MSG_DATA];
-} User; // 64 B
+} User;
 
 /*Message between server and client*/
 typedef struct _Message {
-  // char msgId[MAX_CHARS];
   LL msgId;
-  LL groupId; /* if message is personal chat groupId is receiver's
-                            userId, else is chatRoom id*/
+  LL groupId;
   char senderName[MAX_CHARS];
-  char msg[MAX_MSG_DATA]; // 2048
+  char msg[MAX_MSG_DATA];
   int64_t sendTime;
   MessageType type;
 } Message;
