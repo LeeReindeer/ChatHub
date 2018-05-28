@@ -137,7 +137,14 @@ error:
 }
 
 LL set_offline(User *user) {
-  redisReply *reply = redisCommand(
+  redisReply *reply;
+  if (!user->userId) {
+    reply = redisCommand(c, "HGET users %s", user->username);
+    check(reply->type != REDIS_REPLY_ERROR, "DB: error");
+
+    user->userId = atoll(reply->str);
+  }
+  reply = redisCommand(
       c, "HMSET user:%lld isOnline %d sockfd %d lastOnlineTime %ld",
       user->userId, 0, -1, currentTimeMillis());
   check(reply->type != REDIS_REPLY_ERROR, "DB: error");
