@@ -53,3 +53,9 @@ Message *unpack_message(char *json) {
 
   return message;
 }
+
+void print_message(Message *message) {
+  char *pack = pack_message(message);
+  printf("%s\n", pack);
+  free(pack);
+}

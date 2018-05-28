@@ -7,4 +7,6 @@ char *pack_message(Message *message);
 
 Message *unpack_message(char *json);
 
+void print_message(Message *message);
+
 #endif
