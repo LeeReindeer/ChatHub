@@ -22,12 +22,18 @@
 #include "dao.h"
 
 /*
-* main server
+* chathub server
 */
+
 static HashMap *clients;
+// todo
+// static HashMap *online_users;
 
 void connectClient(struct bufferevent *bev);
 void disconnectClient(struct bufferevent *bev);
+void initDB();
+void shutdown_db();
+void initEvent();
 
 /* dispatch messages to following func*/
 void handleAllMessage(struct bufferevent *from, Message *message);
@@ -35,9 +41,6 @@ int handleRegister(struct bufferevent *this, Message *message);
 int handleLogin(struct bufferevent *this, Message *message);
 int handleLogout(struct bufferevent *this, Message *message);
 int handleChat(struct bufferevent *from, Message *message);
-
-void initDB();
-void initEvent();
 
 void handleAllMessage(struct bufferevent *from, Message *message) {
   int type = message->type;
@@ -49,6 +52,7 @@ void handleAllMessage(struct bufferevent *from, Message *message) {
     break;
   case LOGOUT:
     handleLogout(from, message);
+    break;
   case REGISTER:
     handleRegister(from, message);
     break;
