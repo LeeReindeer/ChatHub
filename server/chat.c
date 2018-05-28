@@ -17,17 +17,15 @@
 
 #include "../lib/config.h"
 #include "../lib/dbg.h"
+#include "../lib/hashtable.h"
 #include "../lib/message.h"
 #include "dao.h"
 
 /*
 * main server
 */
+static HashMap *clients;
 
-// todo use hashtable instead
-struct bufferevent
-    *clients[1024]; /* use fd as index, get event at O(1) time.So the max only
-                       user number is 1024.*/
 void connectClient(struct bufferevent *bev);
 void disconnectClient(struct bufferevent *bev);
 
@@ -105,6 +103,10 @@ int handleLogin(struct bufferevent *this, Message *message) {
   return rc;
 }
 
+/**
+ * @brief  mark user offline in redis, but not actually in runtime(it does not
+ * call disconnectClient()).
+ */
 int handleLogout(struct bufferevent *this, Message *message) {
   User *user = msg2user(message);
   user->userId = logout_user(user);
@@ -134,7 +136,7 @@ int handleChat(struct bufferevent *from, Message *message) {
       (struct bufferevent **)calloc(size, sizeof(struct bufferevent *));
 
   for (size_t i = 0; i < size; i++) {
-    recv_bevs[i] = clients[fds[i]];
+    recv_bevs[i] = hash_get(clients, fds[i]);
     // send msg to all group memebers
     if (recv_bevs[i]) {
       evbuffer_add_buffer(bufferevent_get_output(recv_bevs[i]), input);
@@ -169,11 +171,13 @@ int handleChat(struct bufferevent *from, Message *message) {
 }
 
 void connectClient(struct bufferevent *bev) {
-  clients[bufferevent_getfd(bev)] = bev;
+  hash_set(clients, bufferevent_getfd(bev), bev);
+  // clients[bufferevent_getfd(bev)] = bev;
 }
 
 void disconnectClient(struct bufferevent *bev) {
-  clients[bufferevent_getfd(bev)] = NULL;
+  hash_delete(clients, bufferevent_getfd(bev));
+  // clients[bufferevent_getfd(bev)] = NULL;
 }
 
 void readcb(struct bufferevent *bev, void *arg) {
@@ -184,7 +188,7 @@ void readcb(struct bufferevent *bev, void *arg) {
   input = bufferevent_get_input(bev);
   n = evbuffer_get_length(input);
   log_d("n: %d", n);
-  if (n < MAX_BUFF) {
+  if (n < 150) {
     log_d("drop small message");
     return;
   }
@@ -237,7 +241,7 @@ void listener_cb(struct evconnlistener *listener, evutil_socket_t fd,
     printf("server: can't make bufferevent\n");
     event_base_loopbreak(base);
   }
-  // set online user to redis here
+
   printf("server: new client: %d connected\n", fd);
 
   // record bufferevent
@@ -252,7 +256,7 @@ void listener_errorcb(struct evconnlistener *listener, void *arg) {
   event_base_loopbreak(base);
 }
 
-static void signal_cb(evutil_socket_t sig, short events, void *user_data) {
+void signal_cb(evutil_socket_t sig, short events, void *user_data) {
   struct event_base *base = user_data;
   struct timeval delay = {2, 0};
 
@@ -261,7 +265,15 @@ static void signal_cb(evutil_socket_t sig, short events, void *user_data) {
   event_base_loopexit(base, &delay);
 }
 
-void initDB() { open_db(DB_IP, DB_PORT); }
+void init_db() {
+  open_db(DB_IP, DB_PORT);
+  clients = hash_init(1024);
+}
+
+void shutdown_db() {
+  close_db();
+  hash_destroy(clients);
+}
 
 void initEvent() {
   struct event_base *base;
@@ -294,10 +306,10 @@ void initEvent() {
 error: // fallthrough
   event_base_free(base);
   evconnlistener_free(listener);
-  close_db();
+  shutdown_db();
 }
 
 int main() {
-  initDB();
+  init_db();
   initEvent();
 }
