@@ -141,6 +141,9 @@ int handleChat(struct bufferevent *from, Message *message) {
 
   for (size_t i = 0; i < size; i++) {
     recv_bevs[i] = hash_get(clients, fds[i]);
+    if (recv_bevs[i] == from) {
+      continue; // don't send to myself
+    }
     // send msg to all group memebers
     if (recv_bevs[i]) {
       evbuffer_add_buffer(bufferevent_get_output(recv_bevs[i]), input);
@@ -151,27 +154,6 @@ int handleChat(struct bufferevent *from, Message *message) {
   }
 
   free(fds);
-  // struct bufferevent *receiver_bev = clients[this_fd]; // itself
-  // if (receiver_bev)
-  // { // "online" record in runtime
-  //   log_d("write to client: %d\n", bufferevent_getfd(receiver_bev));
-  //   log_d("Start handle message...");
-  //   handleAllMessage(bev, message);
-  //   // output = bufferevent_get_output(receiver_bev);
-  //   // evbuffer_add_buffer(output, input);
-  //   // bufferevent_flush(receiver_bev, EV_WRITE, BEV_NORMAL);
-  // }
-  // else
-  // {
-  //   // todo save only chat msg to db, and set unsent key
-  //   bufferevent_write(bev, "error", 6);
-  //   bufferevent_flush(bev, EV_WRITE, BEV_NORMAL);
-  //   log_d("user not online, just save msg to db...");
-  // }
-  // get fd from redis("online" record on db)
-  // evutil_socket_t fd =
-  //     get_fd_byid(message->groupId); // this only for personal chat
-  // struct bufferevent *receiver_bev = clients[fd];
 }
 
 void connectClient(struct bufferevent *bev) {
