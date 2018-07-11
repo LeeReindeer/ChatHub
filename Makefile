@@ -13,7 +13,7 @@ all: lib dao chatserver chatclient
 lib: config parson message hash
 
 chatserver: 
-		gcc $(GFLAGS) -o $(BINDIR)/chathub-server $(SERVERDIR)/chat.c $(BINDIR)/dao.o $(BINDIR)/config.o $(BINDIR)/parson.o $(BINDIR)/message.o $(BINDIR)/hash.o $(EVENTLIB) $(REDISLIB)
+		gcc $(GFLAGS) -o $(BINDIR)/chathub-server $(SERVERDIR)/server.c $(BINDIR)/dao.o $(BINDIR)/config.o $(BINDIR)/parson.o $(BINDIR)/message.o $(BINDIR)/hash.o $(EVENTLIB) $(REDISLIB)
 chatclient:
 		gcc $(GFLAGS) -o $(BINDIR)/chathub-cli ./client/chatcli.c ./client/net.o $(BINDIR)/config.o $(BINDIR)/parson.o $(BINDIR)/message.o
 dao:

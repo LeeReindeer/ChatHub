@@ -22,8 +22,8 @@
 #include "dao.h"
 
 /*
-* chathub server
-*/
+ * chathub server
+ */
 
 static HashMap *clients;
 // todo
