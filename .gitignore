@@ -1,0 +1,7 @@
+*.o
+test/
+server/test_dao.c
+.vscode
+.idea
+rsa/
+bin/
