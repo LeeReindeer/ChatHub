@@ -15,7 +15,7 @@ lib: config parson message hash
 chatserver: 
 		gcc $(GFLAGS) -o $(BINDIR)/chathub-server $(SERVERDIR)/server.c $(BINDIR)/dao.o $(BINDIR)/config.o $(BINDIR)/parson.o $(BINDIR)/message.o $(BINDIR)/hash.o $(EVENTLIB) $(REDISLIB)
 chatclient:
-		gcc $(GFLAGS) -o $(BINDIR)/chathub-cli ./client/chatcli.c ./client/net.o $(BINDIR)/config.o $(BINDIR)/parson.o $(BINDIR)/message.o
+		gcc $(GFLAGS) -o $(BINDIR)/chathub-cli ./client/client.c $(BINDIR)/config.o $(BINDIR)/parson.o $(BINDIR)/message.o $(EVENTLIB)
 dao:
 		gcc $(GFLAGS) -c -o $(BINDIR)/dao.o $(SERVERDIR)/dao.c $(REDISLIB)
 config:
