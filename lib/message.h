@@ -3,7 +3,7 @@
 
 #include "../lib/config.h"
 
-char *pack_message(Message *message);
+char *pack_message(Message *message, size_t *json_size);
 
 Message *unpack_message(char *json);
 

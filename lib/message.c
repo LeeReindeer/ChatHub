@@ -7,7 +7,7 @@
  * @param  *message: message to format.
  * @retval json string.
  */
-char *pack_message(Message *message) {
+char *pack_message(Message *message, size_t *json_size) {
   JSON_Value *root_value = json_value_init_object();
   JSON_Object *root_object = json_value_get_object(root_value);
   char *serialied_string = NULL;
@@ -20,7 +20,9 @@ char *pack_message(Message *message) {
   json_object_set_string(root_object, "msg", message->msg);
 
   serialied_string = json_serialize_to_string_pretty(root_value);
-
+  if (json_size) {
+    *json_size = json_serialization_size_pretty(root_value);
+  }
   // json_free_serialized_string(serialied_string);
   json_value_free(root_value);
 
@@ -55,7 +57,7 @@ Message *unpack_message(char *json) {
 }
 
 void print_message(Message *message) {
-  char *pack = pack_message(message);
+  char *pack = pack_message(message, NULL);
   printf("%s\n", pack);
   free(pack);
 }
