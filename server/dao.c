@@ -199,22 +199,34 @@ int get_fd_byname(char *username) { return -1; }
  */
 int *get_fd_byid(LL chatroom_id, size_t *size) {
   *size = 0;
+  size_t user_size = 0;
+
   redisReply *reply = redisCommand(c, "SMEMBERS chatroom:%lld", chatroom_id);
   check(reply->type != REDIS_REPLY_ERROR, "DB: error");
 
+  LL *users = calloc(reply->elements, sizeof(LL));
   int *fds = calloc(reply->elements, sizeof(int));
-  check_mem(fds);
 
   for (int i = 0; i < reply->elements; i++) {
-    int fd = atoi(reply->element[i]->str);
-    log_d("fd: %d", fd);
-    if (fd > 0) {
-      fds[(*size)++] = fd;
+    int user_id = atoll(reply->element[i]->str);
+    log_d("user: %d", user_id);
+    if (user_id > 0) {
+      users[user_size++] = user_id;
     }
   }
 
   freeReplyObject(reply);
 
+  for (int i = 0; i < user_size; i++) {
+    redisReply *reply1 = redisCommand(c, "HGET user:%lld sockfd", users[i]);
+    check(reply1->type != REDIS_REPLY_ERROR, "DB: error");
+    int fd = atoi(reply1->str);
+    log_d("fd: %d", fd);
+    if (fd > 0) {
+      fds[(*size)++] = fd;
+    }
+    freeReplyObject(reply1);
+  }
   return fds;
 
 error:
