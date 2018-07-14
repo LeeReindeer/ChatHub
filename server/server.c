@@ -75,7 +75,7 @@ int handleRegister(struct bufferevent *this, Message *message) {
   strcpy(message->msg, id);
 
   char *json = NULL;
-  json = pack_message(message);
+  json = pack_message(message, NULL);
 
   bufferevent_write(this, json, MAX_BUFF);
 
@@ -94,7 +94,7 @@ int handleLogin(struct bufferevent *this, Message *message) {
 
   sprintf(id, "%lld", user->userId);
   strcpy(message->msg, id);
-  json = pack_message(message);
+  json = pack_message(message, NULL);
   if (rc > 0) { // vaild user id
     // set user sockfd
     set_online(user, bufferevent_getfd(this));
@@ -121,7 +121,7 @@ int handleLogout(struct bufferevent *this, Message *message) {
 
   sprintf(id, "%lld", user->userId);
   strcpy(message->msg, id);
-  json = pack_message(message);
+  json = pack_message(message, NULL);
 
   bufferevent_write(this, json, MAX_BUFF);
 
@@ -132,8 +132,6 @@ int handleLogout(struct bufferevent *this, Message *message) {
 }
 
 int handleChat(struct bufferevent *from, Message *message) {
-  struct evbuffer *input;
-  input = bufferevent_get_input(from);
   size_t size = 0;
   int *fds = get_fd_byid(message->groupId, &size);
   struct bufferevent **recv_bevs =
@@ -145,8 +143,12 @@ int handleChat(struct bufferevent *from, Message *message) {
       continue; // don't send to myself
     }
     // send msg to all group memebers
-    if (recv_bevs[i]) {
-      evbuffer_add_buffer(bufferevent_get_output(recv_bevs[i]), input);
+    if (recv_bevs[i] != NULL) {
+      log_d("Send msg to %d", fds[i]);
+
+      char *json = pack_message(message, NULL);
+      bufferevent_write(recv_bevs[i], json, MAX_BUFF);
+      free(json);
     } else {
       // set unread message
     }
@@ -154,6 +156,7 @@ int handleChat(struct bufferevent *from, Message *message) {
   }
 
   free(fds);
+  free(recv_bevs);
 }
 
 void connectClient(struct bufferevent *bev) {
@@ -174,10 +177,6 @@ void readcb(struct bufferevent *bev, void *arg) {
   input = bufferevent_get_input(bev);
   n = evbuffer_get_length(input);
   log_d("n: %d", n);
-  if (n < 150) {
-    log_d("drop small message");
-    return;
-  }
 
   while ((n = evbuffer_remove(input, buf, MAX_BUFF)) > 0) {
   }
@@ -210,10 +209,10 @@ void eventcb(struct bufferevent *bev, short events, void *arg) {
       printf("Got an error on the connection: %s\n",
              strerror(errno)); /*XXX win32*/
       printf("Closing server...\n");
-      bufferevent_free(bev);
-      event_base_loopbreak(base);
+      // event_base_loopbreak(base);
     }
     disconnectClient(bev);
+    bufferevent_free(bev);
   }
 }
 
@@ -221,6 +220,9 @@ void listener_cb(struct evconnlistener *listener, evutil_socket_t fd,
                  struct sockaddr *sa, int socklen, void *arg) {
   struct event_base *base = arg;
   struct bufferevent *bev;
+
+  // make noblocking
+  evutil_make_socket_nonblocking(fd);
 
   bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
   if (!bev) {
