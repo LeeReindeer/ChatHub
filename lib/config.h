@@ -61,7 +61,7 @@ typedef enum {
   EXIT // 14
 } MessageType;
 
-typedef struct _User {
+typedef struct {
   LL userId;  // auto increase
   int sockfd; // this user's sockfd with server
   char username[MAX_CHARS];
@@ -76,7 +76,7 @@ typedef struct _User {
 } User;
 
 /*Message between server and client*/
-typedef struct _Message {
+typedef struct {
   LL msgId;
   LL groupId;
   char senderName[MAX_CHARS];
