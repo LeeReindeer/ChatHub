@@ -67,7 +67,6 @@ void signal_cb(evutil_socket_t sig, short events, void *arg) {
 }
 
 void stdin_cb(int fd, short events, void *arg) {
-  log_d("start reading");
   char buf[MAX_BUFF] = {0};
 
   int chatroom_id;
@@ -78,7 +77,6 @@ void stdin_cb(int fd, short events, void *arg) {
 
   int n = read(fd, buf, MAX_BUFF);
   buf[strcspn(buf, "\n")] = 0; // eat "\n"
-  log_d("read %d: %s", n, buf);
   if (client.is_login) {
     sscanf(buf, "%d:%s", &chatroom_id, msg);
     message = chat_msg(client.user->username, msg, chatroom_id);
@@ -93,15 +91,15 @@ void stdin_cb(int fd, short events, void *arg) {
     int op = atoi(buf);
     char username[MAX_CHARS] = {0};
     char pass[MAX_CHARS] = {0};
+    char *password;
 
-    log_d("op: %d", op);
     switch (op) {
     case 1:
       printf("Username(less than 20 words):\n");
       n = read(fd, username, MAX_CHARS);
       username[strcspn(username, "\n")] = 0;
-      printf("Password:\n");
-      n = read(fd, pass, MAX_CHARS);
+      password = getpass("Password:\n");
+      strncpy(pass, password, MAX_CHARS);
       username[strcspn(pass, "\n")] = 0;
       message = user_msg(username, pass, LOGIN);
       json_str = json_msg(message, &json_size);
@@ -111,7 +109,9 @@ void stdin_cb(int fd, short events, void *arg) {
       strncpy(client.user->pass, pass, MAX_CHARS);
 
       bufferevent_write(client.bev, json_str, json_size);
-      // client.is_login = 1;
+
+      free(message);
+      free(json_str);
       break;
     default:
       printf("Input error\n");
@@ -166,7 +166,7 @@ void read_cb(struct bufferevent *bev, void *arg) {
   default:
     break;
   }
-  puts(buf);
+  // log_d("%s", buf);
   free(message);
   // bufferevent_enable(bev, EV_WRITE);
 }
