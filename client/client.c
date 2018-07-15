@@ -110,6 +110,7 @@ void stdin_cb(int fd, short events, void *arg) {
 
       bufferevent_write(client.bev, json_str, json_size);
 
+      free(password);
       free(message);
       free(json_str);
       break;
