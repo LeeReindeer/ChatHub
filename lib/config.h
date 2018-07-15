@@ -11,7 +11,7 @@
 
 #define MAX_USER_ON 1024
 
-#define SERVER_IP "128.199.163.149"
+#define SERVER_IP "127.0.0.1"
 #define PORT 3477
 #define DB_IP "127.0.0.1"
 #define DB_PORT 6379
@@ -71,8 +71,6 @@ typedef struct {
   int64_t registerTime;
   // update this when user logout or close app
   int64_t lastOnlineTime;
-  //    char privateKey[MAX_MSG_DATA];
-  //    char publicKey[MAX_MSG_DATA];
 } User;
 
 /*Message between server and client*/
