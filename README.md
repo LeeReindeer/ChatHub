@@ -2,7 +2,7 @@
 
 > 😼
 
-# Build
+## Build
 
 ```shell
 make
@@ -13,7 +13,7 @@ make
 ./bin/chathub-cli
 ```
 
-# Thanks
+## Thanks
 
 - Libevent
 - Redis
